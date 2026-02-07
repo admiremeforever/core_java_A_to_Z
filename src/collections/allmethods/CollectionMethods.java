@@ -33,7 +33,25 @@ public class CollectionMethods {
         stack.add(2);
         stack.add(3);
 
-        System.out.println(list.equals(stack));
+        //System.out.println(list.equals(stack));
+
+
+        List<Integer> list3 = new ArrayList<>();
+        list3.add(1);
+        list3.add(2);
+        list3.add(3);
+        list3.add(299);
+        list3.add(34);
+          int value = Collections.max(list3);
+        System.out.println(value);
+
+        Collections.sort(list3);
+
+        list3.forEach(System.out::println);
+
+
+
+
 
 
     }
