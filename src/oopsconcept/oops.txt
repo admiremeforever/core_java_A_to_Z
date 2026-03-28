@@ -1,3 +1,57 @@
 4 Pillers of OOPS
 a)Abstraction b)Inheritance c)Polymorphism d)Encapsulation
 
+1)First Piller -> Data Abstraction
+->It hides Internal Implementation and shows only essential Functionality
+->can be achieved through interface and Abstract classes
+->It increases security ad confidentiality
+
+2)Second piller ->Data Encapsulation
+->It bundles data and code working on that data in a single unit
+->Also know as data hiding
+->can be achieved by
+  a)Declare variable of a class private
+  b)provide public getters and setters
+
+ ->It's advantage is loosely coupled code, better access control and security
+
+
+ Abstraction = "I don’t need to know the inner workings, just what the object can do."
+ Encapsulation = "I need to protect the data inside the object and control access to it."
+
+ | Feature          | **Abstraction**                                                             | **Encapsulation**                                                                                    |
+ | ---------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+ | **Focus**        | Hides *implementation details* (focus on *what* an object does)             | Hides *internal data* (focus on *how* data is accessed/modified)                                     |
+ | **How achieved** | Abstract classes, interfaces                                                | Private variables + public getters/setters                                                           |
+ | **Purpose**      | Simplify complex systems by exposing only essential functionality           | Protect data and control access                                                                      |
+ | **Example**      | A `Car` interface with a `drive()` method; user doesn’t know engine details | The `Car` class has a private `speed` variable; `getSpeed()` and `setSpeed()` methods control access |
+
+**********************************************************************************************************************************************************************************************************
+
+
+
+
+3)Third Piller ->Inheritance
+->Capability of a class to inherit properties from its parent class
+->Can be achieved using Extends or interfaces(implements)
+->Types
+  a)Single inheritance
+  b)Multilevel Inheritance -> class A extends B ->B extends C
+  c)Hierarchical Inheritance  -> Class B extends Class A and Class C also extends class A (See Below Diagram)
+  d)Multiple Inheritance -> (Not supported in java because od Diamond Problem achieved using Interfaces, see
+  code example)
+->Advantage is code reusability, and we can achieve polymorphism using inheritance
+
+Hierarchical Inheritance
+
+       Parent
+         |
+   -----------------
+   |       |       |
+Child1   Child2   Child3
+
+4)4th piller ->Polymorphism
+->Polymorhism means many forms, a same method(name) behaves diffrently in diffrent situations
+->Types
+ a)Compile time/static polymorphism -> acheved using method overloding
+ b)Runtime/Dynamic Polymorphism ->Acheived using method overriding
