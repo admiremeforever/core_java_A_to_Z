@@ -1,0 +1,18 @@
+ENUM properties
+1)It is a collection of constants
+2)it's constants are static and final by default we need not declare it
+3)it cannot extend any class but it can implement interfaces
+4)it can have variable, methods and constructor
+5)It cannot be instantiated -> Constructors always become private in bytecode
+6)No other class can extend enum class
+7)It can have abstract methods and all the constants should implement that abstract method
+
+why do we need enum when we have classes with static final variables?
+
+| Feature          | Explanation                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------ |
+| **Type Safety**  | Only `Status.SUCCESS` or `Status.FAILURE` allowed. Compiler prevents invalid values. |
+| **Grouping**     | All possible values of `Status` are in **one place**.                                |
+| **Readable**     | `Status.SUCCESS` is more readable than `1` or `0`.                                   |
+| **Add behavior** | You can add methods to enum.                                                         |
+| **Iterable**     | Can loop through all values using `Status.values()`.                                 |
