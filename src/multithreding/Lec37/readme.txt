@@ -52,6 +52,10 @@ else
     //read concurrency in collections
 
 
+//Atomic integers F&F
+AtomicInteger is a lock-free, thread-safe class used for atomic operations on integers. Instead of using synchronized blocks or explicit locks, it relies on CAS (Compare-And-Swap) operations provided by the CPU. Multiple threads can concurrently attempt updates, and if a CAS operation fails because another thread modified the value, the operation is retried. This avoids blocking and context-switch overhead associated with locks.
+
+One limitation of CAS-based algorithms is the ABA problem, where a value changes from A to B and back to A. A CAS operation may incorrectly assume nothing changed because the final value matches the original value. This can be solved using versioned references such as AtomicStampedReference, which compares both the value and a stamp (version number) rather than only the value.
 
 
 
