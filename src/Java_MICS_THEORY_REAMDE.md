@@ -4,8 +4,9 @@ Bootstrap, Platform, and Application ClassLoaders. When a class is requested, a 
 ensuring core Java classes are loaded only by trusted loaders. This prevents malicious replacement of classes like java.lang.String. 
 Class metadata is stored in Metaspace, and advanced frameworks such as Tomcat and Spring Boot use custom ClassLoaders for isolation
 and dynamic loading.
-Bootstrap ClassLoader
 
+
+Bootstrap ClassLoader
 Native code (C/C++), part of JVM itself — not a Java object
 Loads core classes: java.lang.*, Object, Class, ClassLoader
 No parent (root)
