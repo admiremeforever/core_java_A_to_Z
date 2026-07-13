@@ -29,3 +29,11 @@ Practice Stream API -> https://blog.stackademic.com/crack-the-code-top-java-stre
 and 
 
 https://javaconceptoftheday.com/solving-real-time-queries-using-java-8-features-employee-management-system/
+
+
+
+
+
+=================================================
+
+"Comparable defines a class's single natural ordering by implementing compareTo inside the class. Comparator defines an external, arbitrary ordering via compare, without touching the class — and you can have as many Comparators as you need for different sort criteria."
