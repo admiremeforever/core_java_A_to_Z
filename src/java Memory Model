@@ -1,0 +1,54 @@
+# Java Memory Model (JMM) — Interview Answer
+
+## Core definition (say this first)
+
+> "The Java Memory Model defines the rules for how threads interact through memory — specifically, it specifies **when a write made by one thread is guaranteed to be visible to another thread**, and what reordering the compiler/CPU/JVM is allowed to do to your code."
+
+This matters because **without JMM rules, threads could see stale or reordered data** — CPUs cache values in registers/local caches, compilers reorder instructions for optimization, and none of that is a bug *unless* it breaks a guarantee the JMM promises.
+
+## The two problems JMM solves
+
+1. **Visibility** — does Thread B see the value Thread A just wrote?
+2. **Ordering/Reordering** — can the compiler/CPU rearrange instructions in ways that break correctness across threads?
+
+## Key concept: "happens-before"
+
+This is the central rule of JMM — if action A **happens-before** action B, then A's effects (writes) are guaranteed visible to B. Concrete rules that establish happens-before:
+
+- **Program order rule** — within a single thread, statements happen in the order written
+- **Monitor lock rule** — unlocking a `synchronized` block happens-before a later thread acquiring that same lock
+- **Volatile variable rule** — a write to a `volatile` variable happens-before every subsequent read of it
+- **Thread start rule** — `Thread.start()` happens-before anything in the started thread's run()
+- **Thread join rule** — everything in a thread happens-before another thread's successful `join()` on it
+
+## The tools that enforce these guarantees
+
+| Keyword/Mechanism | What it guarantees |
+|---|---|
+| `synchronized` | Mutual exclusion **+** visibility (lock acquire/release creates happens-before) |
+| `volatile` | Visibility only (no atomicity for compound actions like `i++`) — every read sees the latest write, and prevents reordering around it |
+| `final` | Once constructor finishes, a `final` field's value is safely visible to other threads without extra synchronization |
+| `java.util.concurrent.atomic.*` | Atomic read-modify-write operations (e.g. `AtomicInteger`) without locking |
+| `java.util.concurrent` locks (`ReentrantLock`, etc.) | Same happens-before guarantee as synchronized, more flexible API |
+
+## Common interview trap: `volatile` ≠ atomic
+
+```java
+volatile int counter = 0;
+counter++;   // NOT thread-safe! This is read-modify-write, 3 separate operations
+```
+`volatile` guarantees **visibility**, not **atomicity**. For thread-safe increments you need `synchronized`, `AtomicInteger`, or a lock.
+
+## Why this exists at all (the deeper "why")
+
+Modern CPUs have multiple cache layers, and compilers/JIT reorder instructions for performance — both completely legal for single-threaded correctness, but potentially disastrous across threads. JMM is Java's **formal contract** (introduced/formalized in **JSR-133**, Java 5) telling developers exactly what's guaranteed and telling the JVM/compiler/CPU exactly what reorderings they're allowed to do.
+
+## One-line summary to close with
+
+> "JMM is the specification that defines visibility and ordering guarantees across threads via the happens-before relationship — enforced through `synchronized`, `volatile`, `final`, and the `java.util.concurrent` package — so multi-threaded code behaves predictably despite CPU caching and compiler reordering."
+
+## Likely follow-up questions to prep
+
+- What's a memory barrier?
+- Explain false sharing
+- Difference between synchronized and volatile
