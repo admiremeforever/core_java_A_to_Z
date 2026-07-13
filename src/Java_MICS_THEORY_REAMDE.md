@@ -23,13 +23,13 @@ Application ClassLoader (a.k.a. System ClassLoader)
 Loads your app's classes from classpath/module path
 Parent = Platform
 ClassLoader.getSystemClassLoader()
-
+===================================================
 Practice Stream API -> https://blog.stackademic.com/crack-the-code-top-java-stream-interview-questions-with-code-solutions-f8e4c1ed6160
 
 and 
 
 https://javaconceptoftheday.com/solving-real-time-queries-using-java-8-features-employee-management-system/
-
+====================================================
 
 
 
@@ -37,3 +37,5 @@ https://javaconceptoftheday.com/solving-real-time-queries-using-java-8-features-
 =================================================
 
 "Comparable defines a class's single natural ordering by implementing compareTo inside the class. Comparator defines an external, arbitrary ordering via compare, without touching the class — and you can have as many Comparators as you need for different sort criteria."
+
+====================================================
