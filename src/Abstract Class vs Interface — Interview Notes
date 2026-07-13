@@ -1,0 +1,64 @@
+# Abstract Class vs Interface — Interview Notes
+
+## 1. Instantiation
+- Neither can be instantiated directly.
+
+## 2. State (Instance Variables)
+- Abstract class: can have instance variables (mutable state), any access modifier.
+- Interface: fields are implicitly `public static final` — constants only, **no instance state**.
+
+## 3. Constructors
+- Abstract class: **can have constructors** to initialize state.
+- Interface: **cannot have constructors**.
+
+## 4. Access Modifiers
+- Abstract class: methods can be `private`, `protected`, `public`, default.
+- Interface: methods are `public` by default (Java 9 added `private` methods, but only for internal code reuse, not varied visibility).
+
+## 5. Inheritance
+- Class can extend **only one** abstract class (single inheritance).
+- Class can implement **multiple** interfaces (avoids diamond problem since no state conflict).
+
+## 6. Method Bodies
+- Abstract class: mix of abstract + concrete methods always allowed.
+- Interface: Java 8 added `default`/`static` methods; Java 9 added `private` methods (to share code between default methods without exposing it).
+
+## 7. Purpose / Design Intent
+- Abstract class → **"IS-A"** relationship — shared identity, state, and partial implementation.
+- Interface → **"CAN-DO"** relationship — capability/contract only.
+
+```java
+abstract class Vehicle {
+    protected int speed;         // state
+    abstract void accelerate();  // abstract
+    void brake() { speed = 0; }  // concrete, uses state
+}
+
+interface Flyable {
+    void fly();                 // capability
+}
+
+class Bird extends Animal implements Flyable { } // combine both
+```
+
+---
+
+## Summary Table
+
+| Point | Abstract Class | Interface |
+|---|---|---|
+| State (instance fields) | ✅ Yes | ❌ No (only `public static final` constants) |
+| Constructor | ✅ Yes | ❌ No |
+| Method access modifiers | Any (`private`, `protected`, `public`) | Only `public` (except Java 9 `private` methods for internal reuse) |
+| Inheritance | Single (`extends` one class) | Multiple (`implements` many) |
+| Method body | Abstract + concrete methods | Java 8+: `default` & `static` methods; Java 9+: `private` methods too |
+| Represents | "IS-A" — identity + shared state/behavior | "CAN-DO" — capability/contract |
+
+---
+
+## One-Liner Answer
+> "Both can't be instantiated. Abstract class = state + constructor + single inheritance ('is-a'). Interface = no state, no constructor, multiple inheritance ('can-do') — even with default/static/private methods added in Java 8/9."
+
+## Trap Question
+**Q: "Interface has method bodies now, so isn't it same as abstract class?"**
+**A:** "No — still no state, no constructor, supports multiple inheritance. That's the dividing line."
