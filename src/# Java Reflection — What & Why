@@ -1,0 +1,56 @@
+# Java Reflection — What & Why
+
+## What it is
+
+**Reflection** is the ability of a Java program to **inspect and manipulate classes, methods, fields, and constructors at runtime** — even ones it didn't know about at compile time.
+
+```java
+Class<?> clazz = Class.forName("com.example.Employee");
+Method[] methods = clazz.getDeclaredMethods();
+Field field = clazz.getDeclaredField("salary");
+field.setAccessible(true);   // even private fields
+Object value = field.get(employeeInstance);
+```
+
+Normally, Java is **statically typed** — you write `emp.getSalary()` and the compiler locks that in at compile time. Reflection lets you instead say "give me whatever method is named `getSalary`, on whatever object this turns out to be, and call it" — all decided **at runtime**, as a string/lookup rather than compiled code.
+
+## Why it's needed — the real use cases
+
+### 1. Frameworks that don't know your classes in advance
+Spring, Hibernate, JUnit, Jackson — none of them can hardcode calls to *your* classes since they're generic libraries. Reflection lets them:
+- Scan your classes for annotations (`@Autowired`, `@Entity`, `@Test`)
+- Instantiate your classes dynamically
+- Call your getters/setters to map data (ORM, JSON serialization)
+
+**This is the #1 real-world reason reflection exists** — it's the mechanism that makes annotation-driven frameworks possible at all.
+
+### 2. Dependency Injection
+Spring needs to look at your class, find its constructor/fields, and **inject the right beans** — it can only do this by reflecting on your class structure at runtime, since it has no compile-time knowledge of your code.
+
+### 3. Serialization/Deserialization
+Jackson/Gson converting JSON ↔ Java objects need to read/write arbitrary object fields generically — reflection lets one library handle *any* class without needing a hand-written mapper per class.
+
+### 4. Tools: IDEs, debuggers, test runners
+An IDE's auto-complete, a debugger's "inspect variables" view, JUnit finding and invoking your `@Test` methods — all reflection-based, since these tools are written before your code exists.
+
+### 5. Accessing private members (with caution)
+`setAccessible(true)` lets you bypass access modifiers — used by frameworks/testing tools, but a red flag if used in regular application code (breaks encapsulation).
+
+## The trade-offs (important for interviews)
+
+| Downside | Why |
+|---|---|
+| **Performance** | Reflective calls are slower than direct calls — no JIT inlining, extra security checks, dynamic dispatch overhead |
+| **No compile-time safety** | Typos in method/field names only fail at **runtime**, not compile time |
+| **Breaks encapsulation** | `setAccessible(true)` can access private fields — dangerous if misused |
+| **Harder to read/maintain** | Code becomes stringly-typed and less discoverable |
+| **Security implications** | Reflection can be restricted by `SecurityManager` (though deprecated in Java 17+) or module boundaries (JPMS `opens`/`exports` in Java 9+) |
+
+## One-line interview answer
+
+> "Reflection lets a program inspect and manipulate classes, methods, and fields at runtime instead of compile time. It's essential for frameworks like Spring, Hibernate, and Jackson — which need to work with arbitrary user-defined classes they can't know about in advance — but it comes with a performance cost and loses compile-time safety, so it should be avoided in regular application code."
+
+## Likely follow-ups
+- **How would you get all annotations on a class?** → `clazz.getAnnotations()`
+- **Difference between `Class.forName()` and `.class`?** → `forName` loads dynamically by string name (can throw `ClassNotFoundException`); `.class` is compile-time literal
+- **What is `Proxy`/dynamic proxy?** → Reflection-based mechanism to create runtime implementations of interfaces (used heavily by Spring AOP)
