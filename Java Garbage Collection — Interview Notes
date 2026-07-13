@@ -1,0 +1,169 @@
+# Java Garbage Collection — Interview Notes
+
+## 1. Heap Layout Basics
+
+```
+Young Generation                    Old Generation
+[ Eden | S0 | S1 ]                  [ ------------------ ]
+```
+
+| Space | Purpose |
+|---|---|
+| **Eden** | Where all new objects are allocated first |
+| **S0 / S1 (Survivor)** | Two equal-sized spaces; only one is "active" at any time. Objects that survive a minor GC get copied here |
+| **Old Gen (Tenured)** | Objects that survive enough young GC cycles get **promoted** here |
+
+**Why two survivor spaces?** So copying collection always has a clean destination — Eden + active survivor get scanned, live objects copied to the *other* (empty) survivor, then roles swap. This avoids fragmentation in young gen entirely.
+
+**Object lifecycle:**
+```
+New object → Eden → (survives minor GC) → S0/S1 (age++ each cycle)
+           → (age crosses tenuring threshold OR survivor space full) → Old Gen
+```
+
+**Interview trap:** "Minor GC" = young gen collection. "Major/Full GC" = old gen (or whole heap) collection. Full GC is always more expensive.
+
+---
+
+## 2. Serial GC (`-XX:+UseSerialGC`) — a.k.a. "Single GC"
+
+- **1 thread** does everything. Full **Stop-The-World (STW)** for both young and old gen.
+- **Young gen:** copying collector (Eden/S0/S1 → Cheney-style copy)
+- **Old gen:** **Mark → Sweep → Compact** (MSC) — always fully compacts
+- Pause time ≈ **O(heap size)** for old gen — bad for large heaps
+- **Best for:** small heaps, CLI tools, single-core machines, client-side apps
+- **Key fact:** simplest correctness model — world is frozen, no mutator races, no write barriers needed
+
+---
+
+## 3. Parallel GC (`-XX:+UseParallelGC`) — "Throughput collector"
+
+- Same algorithms as Serial (copying young, MSC old) but **multi-threaded** for both
+- Still fully STW — just faster because N threads instead of 1
+- **Goal: maximize throughput**, not minimize pause time
+- Was the **default GC in Java 8**
+- **Interview line:** "Parallel = Serial's algorithms, parallelized. Doesn't reduce pause time philosophy, just does the STW work faster."
+
+---
+
+## 4. CMS — Concurrent Mark Sweep (`-XX:+UseConcMarkSweepGC`)
+
+- **Young gen:** handled by **ParNew** (parallel STW copying collector — separate from Parallel Scavenge, built to cooperate with CMS)
+- **Old gen:** concurrent mark-sweep — **runs alongside the app**, only 2 short STW pauses
+
+### Phases (memorize this):
+| Phase | STW? | What happens |
+|---|---|---|
+| Initial Mark | STW (short) | Mark objects reachable directly from GC roots |
+| Concurrent Mark | Concurrent | Traverse full object graph while app runs |
+| Concurrent Preclean | Concurrent | Rescan dirty cards, shrink Remark's workload |
+| **Remark** | **STW (bigger)** | Final sync — rescans dirty cards + young gen refs |
+| Concurrent Sweep | Concurrent | Reclaim dead objects into **free lists** — **no compaction** |
+| Concurrent Reset | Concurrent | Reset bookkeeping for next cycle |
+
+### Core CS concepts to be able to explain:
+- **Tricolor marking** (white/gray/black) — invariant: no black object may point to white
+- **Write barrier + Card Table**: tracks mutator writes into old gen so collector doesn't rescan everything; card = fixed-size heap chunk (e.g. 512B) marked "dirty" on write
+- **Incremental update** algorithm (Dijkstra-style) — CMS's specific write-barrier strategy
+
+### CMS's fatal flaws:
+1. **No compaction** → old gen fragments over time (free-list allocation, not bump-pointer)
+2. **Promotion failure**: young GC can't promote an object because no single free chunk is big enough in old gen (even if total free space is enough)
+3. **Concurrent Mode Failure**: old gen fills up before the concurrent cycle finishes → falls back to full single-threaded compacting STW collection (worst-case pause, worse than Serial would've been)
+
+### Status:
+- Deprecated: **Java 9** (JEP 291)
+- Removed: **Java 14** (JEP 363) — flag will fail to start JVM
+
+---
+
+## 5. G1 — Garbage First (`-XX:+UseG1GC`)
+
+- **Default since Java 9**; usable from Java 7u4+
+- **Fixes CMS's core weakness: fragmentation**, by restructuring heap layout
+
+### Structural change:
+- Heap divided into many **equal-sized regions** (1MB–32MB, auto-sized)
+- Any region can be Eden, Survivor, or Old — **role assigned dynamically**, no fixed Young/Old blocks
+
+```
+G1 heap: [E][E][S][O][E][O][O][E][S][O]...   ← roles reassigned over time
+```
+
+### "Garbage First" — the core idea:
+- Each region tracks how much garbage it holds
+- G1 collects the regions with **best garbage-to-effort ratio first** (not the whole old gen every time)
+
+### Incremental compaction (the big win over CMS):
+- G1 **does** compact — but region by region
+- Picks a subset of regions → copies live objects OUT to a fresh empty region → **discards the entire source region** (100% reclaimed, not "gaps")
+- Never fragments, because it never deletes-in-place — always copies-and-discards, same trick as young-gen copying collection
+
+### Concurrency mechanism — different from CMS:
+- **SATB (Snapshot-At-The-Beginning)**, not incremental update
+- Logs the **old** value when a reference is overwritten (not the new one) — guarantees anything alive at cycle start stays marked alive
+- **Remembered Sets (RSets)** — per-region "who points into me" index, replacing CMS's single global card table. Lets G1 evacuate a few regions without scanning the whole heap for references to them
+
+### Pause time control:
+- `-XX:MaxGCPauseMillis=200` — G1 tries to hit this target by choosing how many regions to process
+- **Goal-based/predictive**, vs. CMS's threshold-triggered/reactive model
+
+---
+
+## 6. Master Comparison Table
+
+| | Serial | Parallel | CMS | G1 |
+|---|---|---|---|---|
+| Threads | 1 | N (STW only) | 1 young(N)/old(concurrent) | N (mostly concurrent) |
+| Old gen algorithm | Mark-Sweep-Compact | Mark-Sweep-Compact | Mark-Sweep (no compact) | Mark-Copy (region-based, compacts) |
+| Compaction | Always | Always | **Never** | Yes, incremental |
+| Fragmentation risk | None | None | **High** | None |
+| Optimizes for | Simplicity | Throughput | Latency | Latency + predictability |
+| Concurrency algorithm | N/A | N/A | Incremental update + card table | SATB + remembered sets |
+| Pause control | None | None | Threshold-based | Goal-based (`MaxGCPauseMillis`) |
+| Default in | — | Java 8 | never default | Java 9+ |
+| Status | Available | Available | Removed (Java 14) | Active default |
+
+---
+
+## 7. Likely Follow-up Interview Questions (with one-liners)
+
+**Q: Why does young gen behave the same under CMS as under Parallel GC?**
+A: CMS only replaces old-gen's algorithm. Young gen is handled by ParNew — same copying-collector concept as Parallel Scavenge, just implemented separately to cooperate with CMS's card table/promotion handling.
+
+**Q: Why can't CMS compact concurrently?**
+A: Moving a live object while the mutator might hold a raw pointer to its old address isn't safe without stopping the world (or full relocating-collector machinery like ZGC/Shenandoah use). CMS predates that tech, so it just skips compaction.
+
+**Q: What's the tricolor invariant and why does it matter?**
+A: No black (fully-scanned, "live") object may point to a white (unvisited) object during concurrent marking — otherwise the collector might sweep up a still-live object as garbage. Write barriers exist specifically to preserve this invariant.
+
+**Q: SATB vs incremental update — what's the actual difference?**
+A: Incremental update (CMS) marks newly-created references gray as they're written. SATB (G1) instead logs the *old* value when overwritten, guaranteeing anything alive at snapshot time stays alive for the whole cycle — considered more efficient for concurrent correctness.
+
+**Q: What causes Promotion Failure vs Concurrent Mode Failure?**
+A: Promotion Failure = old gen has enough *total* free space but no single chunk big enough (fragmentation). Concurrent Mode Failure = old gen fills up entirely before the CMS cycle finishes reclaiming space. Both trigger fallback to a full STW collection.
+
+**Q: Why did G1 replace CMS?**
+A: G1 gives CMS's core benefit (concurrent marking, low pause times) without CMS's core weakness (fragmentation), by compacting incrementally at the region level instead of never compacting at all.
+
+**Q: How do you pick a GC in production today?**
+A: G1 is the default/safe choice for most services. Use ZGC/Shenandoah if you need sub-10ms pauses on very large heaps. CMS is legacy-only (removed in Java 14+). Serial/Parallel only for small heaps or pure-throughput batch jobs where pause time doesn't matter.
+
+---
+
+## 8. Key JVM Flags Cheat Sheet
+
+```bash
+-XX:+UseSerialGC
+-XX:+UseParallelGC
+-XX:+UseConcMarkSweepGC     # Java 8–13 only
+-XX:+UseG1GC
+-XX:+UseZGC
+-XX:+UseShenandoahGC
+
+-Xms4g -Xmx4g                          # heap sizing
+-XX:MaxGCPauseMillis=200               # G1 pause goal
+-XX:G1HeapRegionSize=8m                # G1 region size
+-XX:CMSInitiatingOccupancyFraction=70  # CMS cycle trigger %
+-Xlog:gc*:file=gc.log                  # Java 9+ unified GC logging
+```
