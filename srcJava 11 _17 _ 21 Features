@@ -1,0 +1,101 @@
+# Virtual Threads — Revision Notes
+
+**Problem with Platform Threads**
+- 1:1 mapping with OS thread, ~1MB stack, OS scheduler, context switch costly
+- OS handle kar sakta hai sirf kuch hazaar threads → thread-per-request model scale nahi karta
+
+**Virtual Thread = JVM-managed lightweight thread**
+- M:N model — lakhs of virtual threads, few **carrier threads** (platform threads, usually = CPU cores, ForkJoinPool)
+- Stack = JVM heap me, few KB, dynamically grows
+
+**Core Mechanism — Unmount/Remount**
+- Blocking call (DB, network, file I/O) → virtual thread carrier se **unmount**, carrier free ho ke doosra virtual thread serve karta hai
+- I/O complete → virtual thread kisi bhi free carrier pe **remount**
+- Ye sab JVM ke andar hota hai, koi OS call nahi
+
+**Pinning (catch)**
+- `synchronized` block ke andar blocking call, ya native/JNI call ke andar block → unmount nahi ho pata, carrier thread block ho jata hai
+- Fix: `synchronized` → `ReentrantLock` use karo
+
+**Java Thread vs OS Thread**
+- Platform thread: Java Thread object ↔ OS thread — permanent 1:1
+- Virtual thread: Java Thread object ↔ OS thread — temporary, sirf mounted state ke time
+
+**Kab fayda, kab nahi**
+- **I/O-bound / high blocking frequency** → massive benefit (DB calls, API calls, file I/O) — carrier thread reuse hota hai
+- **CPU-bound / no blocking** → koi fayda nahi, virtual thread = platform thread performance-wise, kyunki unmount ka mauka hi nahi milta
+- Concurrency limit CPU-bound case me phir bhi core count se bound rehta hai
+
+**Mixed Example (real world common)**
+```java
+public Report generateReport(String userId) {
+    List<Data> rawData = fetchDataFromDB(userId);   // Blocking I/O → unmount fayda
+    Report report = computeAggregations(rawData);    // CPU-bound → no fayda
+    saveReportToS3(report);                            // Blocking I/O → unmount fayda
+    return report;
+}
+```
+Net benefit tab bhi milta hai kyunki typical apps me I/O wait time >> compute time.
+
+**One-liner**
+> I/O-bound workload → virtual threads. CPU-bound workload → traditional fixed-size platform thread pool (matched to core count).
+
+
+
+
+# Java Version-wise Key Features — Revision Notes
+
+## Java 11 → HTTP Client API
+
+**Purpose:** Old `HttpURLConnection` bahut clunky tha (verbose, no HTTP/2 support, blocking-only). Java 11 me naya **standardized `java.net.http.HttpClient`** aaya.
+
+**Fayda:**
+- **HTTP/2 support** built-in (multiplexing — ek connection pe multiple requests parallel)
+- **Both sync aur async** APIs (`send()` for blocking, `sendAsync()` for non-blocking using `CompletableFuture`)
+- Clean, fluent **builder-style API** — request/response banana easy
+- WebSocket support bhi built-in
+- JSON/REST APIs call karna bahut simpler ho gaya bina external library (jaise Apache HttpClient) ke
+
+```java
+HttpClient client = HttpClient.newHttpClient();
+HttpRequest request = HttpRequest.newBuilder()
+        .uri(URI.create("https://api.example.com/data"))
+        .build();
+HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+```
+
+**One-liner:** Modern, HTTP/2-ready, sync+async client — bina third-party library ke REST calls karne ke liye.
+
+---
+
+## Java 17 → Records
+
+**Easy definition:** Record ek **immutable data class** hai jisme boilerplate (constructor, getters, `equals`, `hashCode`, `toString`) compiler khud generate karta hai — sirf data hold karne ke liye.
+
+```java
+public record Point(int x, int y) { }
+```
+Ye automatically `x()`, `y()` getters, constructor, `equals`, `hashCode`, `toString` bana deta hai.
+
+**Fayda:** DTOs/value objects likhne me time aur boilerplate dono bachta hai. Fields `final` hote hain (immutable).
+
+---
+
+## Java 17 → Sealed Classes
+
+**Easy definition:** Sealed class tumhe control karne deti hai ki **kaun-kaun si classes** tumhari class ko extend kar sakti hain — restricted/controlled inheritance.
+
+```java
+public sealed class Shape permits Circle, Square { }
+public final class Circle extends Shape { }
+public final class Square extends Shape { }
+```
+
+**Fayda:** 
+- Inheritance hierarchy **closed aur predictable** rehti hai (koi random class extend nahi kar sakti)
+- Pattern matching (`switch`) ke sath combine hoke **exhaustive checking** milti hai bina `default` case likhe — compiler ko pata hota hai total kitne subtypes hain
+
+**One-liner:** Enums ka powerful version — jaha har case apna alag data/behavior rakh sake.
+
+---
+
