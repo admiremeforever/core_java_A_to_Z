@@ -1,0 +1,41 @@
+# Virtual Threads — Revision Notes
+
+**Problem with Platform Threads**
+- 1:1 mapping with OS thread, ~1MB stack, OS scheduler, context switch costly
+- OS handle kar sakta hai sirf kuch hazaar threads → thread-per-request model scale nahi karta
+
+**Virtual Thread = JVM-managed lightweight thread**
+- M:N model — lakhs of virtual threads, few **carrier threads** (platform threads, usually = CPU cores, ForkJoinPool)
+- Stack = JVM heap me, few KB, dynamically grows
+
+**Core Mechanism — Unmount/Remount**
+- Blocking call (DB, network, file I/O) → virtual thread carrier se **unmount**, carrier free ho ke doosra virtual thread serve karta hai
+- I/O complete → virtual thread kisi bhi free carrier pe **remount**
+- Ye sab JVM ke andar hota hai, koi OS call nahi
+
+**Pinning (catch)**
+- `synchronized` block ke andar blocking call, ya native/JNI call ke andar block → unmount nahi ho pata, carrier thread block ho jata hai
+- Fix: `synchronized` → `ReentrantLock` use karo
+
+**Java Thread vs OS Thread**
+- Platform thread: Java Thread object ↔ OS thread — permanent 1:1
+- Virtual thread: Java Thread object ↔ OS thread — temporary, sirf mounted state ke time
+
+**Kab fayda, kab nahi**
+- **I/O-bound / high blocking frequency** → massive benefit (DB calls, API calls, file I/O) — carrier thread reuse hota hai
+- **CPU-bound / no blocking** → koi fayda nahi, virtual thread = platform thread performance-wise, kyunki unmount ka mauka hi nahi milta
+- Concurrency limit CPU-bound case me phir bhi core count se bound rehta hai
+
+**Mixed Example (real world common)**
+```java
+public Report generateReport(String userId) {
+    List<Data> rawData = fetchDataFromDB(userId);   // Blocking I/O → unmount fayda
+    Report report = computeAggregations(rawData);    // CPU-bound → no fayda
+    saveReportToS3(report);                            // Blocking I/O → unmount fayda
+    return report;
+}
+```
+Net benefit tab bhi milta hai kyunki typical apps me I/O wait time >> compute time.
+
+**One-liner**
+> I/O-bound workload → virtual threads. CPU-bound workload → traditional fixed-size platform thread pool (matched to core count).
